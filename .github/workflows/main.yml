@@ -1,0 +1,64 @@
+name: Zip'i Aç ve Kur
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v4
+
+      - name: Zip dosyasını bul ve aç
+        run: |
+          echo "Mevcut dosyalar:"
+          ls -la
+          
+          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" -type f | head -1)
+          echo "Bulunan zip: $ZIP_FILE"
+          
+          if [ -z "$ZIP_FILE" ]; then
+            echo "HATA: Zip dosyası bulunamadı!"
+            exit 1
+          fi
+          
+          mkdir -p /tmp/extract
+          unzip -o "$ZIP_FILE" -d /tmp/extract
+          
+          echo "Zip içeriği:"
+          ls -la /tmp/extract
+          
+          # NoteWidgetApp klasörü varsa onun içini al
+          if [ -d "/tmp/extract/NoteWidgetApp" ]; then
+            echo "NoteWidgetApp klasörü bulundu, içini kopyalıyorum..."
+            cp -r /tmp/extract/NoteWidgetApp/. .
+          else
+            echo "Direkt içeriği kopyalıyorum..."
+            cp -r /tmp/extract/. .
+          fi
+          
+          # Zip'i sil
+          rm -f "$ZIP_FILE"
+          
+          echo "=== Son dosya yapısı ==="
+          ls -la
+          ls -la .github/workflows/ || echo ".github/workflows henüz yok"
+
+      - name: Değişiklikleri kaydet ve gönder
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git status
+          
+          if git diff --staged --quiet; then
+            echo "Kaydedilecek değişiklik yok"
+          else
+            git commit -m "Zip açıldı - proje dosyaları eklendi"
+            git push
+            echo "Başarıyla gönderildi"
+          fi
